@@ -1,0 +1,160 @@
+name: "Argus agent red-team scan"
+description: "Run Argus red-team probes against your AI agent in CI and upload the findings as SARIF."
+author: "gy15901580825"
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  target:
+    description: "Path to the target spec JSON file."
+    required: true
+  probes:
+    description: "Comma-separated probe ids, or 'all'."
+    required: false
+    default: "owasp_01_prompt_injection_basic,owasp_07_system_prompt_leakage"
+  format:
+    description: "Report format: sarif, html or junit."
+    required: false
+    default: "sarif"
+  output:
+    description: "Path of the report file to write."
+    required: false
+    default: "argus.sarif"
+  fail-on:
+    description: "Fail the job when a finding has this severity or higher (info, low, medium, high, critical). Empty string disables the gate."
+    required: false
+    default: "critical"
+  per-run-cap:
+    description: "Maximum LLM spend in USD for one scan."
+    required: false
+    default: "0.50"
+  upload-sarif:
+    description: "Upload the report to GitHub code scanning. Only used when format is sarif."
+    required: false
+    default: "true"
+  argus-version:
+    description: "argus-probe version to install from PyPI."
+    required: false
+    default: "0.1.0"
+  install-spec:
+    description: "Space-separated pip requirement specs to install instead of argus-probe[local]==<argus-version>."
+    required: false
+    default: ""
+  python-version:
+    description: "Python version for actions/setup-python."
+    required: false
+    default: "3.11"
+
+outputs:
+  exit-code:
+    description: "Exit code of argus-probe run (0 ok, 1 error, 2 local mode unavailable, 3 gate tripped)."
+    value: ${{ steps.scan.outputs.exit-code }}
+  report:
+    description: "Path of the report file."
+    value: ${{ steps.scan.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install argus-probe
+      shell: bash
+      env:
+        INSTALL_SPEC: ${{ inputs.install-spec }}
+        ARGUS_VERSION: ${{ inputs.argus-version }}
+      run: |
+        set -euo pipefail
+        python -m pip install --upgrade pip
+        if [ -n "$INSTALL_SPEC" ]; then
+          read -r -a specs <<< "$INSTALL_SPEC"
+          python -m pip install "${specs[@]}"
+        else
+          python -m pip install "argus-probe[local]==$ARGUS_VERSION"
+        fi
+        argus-probe --help > /dev/null
+
+    - name: Run argus-probe
+      id: scan
+      shell: bash
+      env:
+        ARGUS_TARGET: ${{ inputs.target }}
+        ARGUS_PROBES: ${{ inputs.probes }}
+        ARGUS_FORMAT: ${{ inputs.format }}
+        ARGUS_OUTPUT: ${{ inputs.output }}
+        ARGUS_FAIL_ON: ${{ inputs.fail-on }}
+        ARGUS_PER_RUN_CAP: ${{ inputs.per-run-cap }}
+      run: |
+        set -uo pipefail
+        args=(run --local --target "$ARGUS_TARGET" --probes "$ARGUS_PROBES"
+              --format "$ARGUS_FORMAT" --out "$ARGUS_OUTPUT")
+        if [ -n "$ARGUS_PER_RUN_CAP" ]; then
+          args+=(--per-run-cap "$ARGUS_PER_RUN_CAP")
+        fi
+        if [ -n "$ARGUS_FAIL_ON" ]; then
+          args+=(--fail-on "$ARGUS_FAIL_ON")
+        fi
+        code=0
+        argus-probe "${args[@]}" || code=$?
+        echo "argus-probe exited with code $code"
+        {
+          echo "exit-code=$code"
+          echo "report=$ARGUS_OUTPUT"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Check SARIF report
+      id: sarif
+      if: always()
+      shell: bash
+      env:
+        UPLOAD_SARIF: ${{ inputs.upload-sarif }}
+        ARGUS_FORMAT: ${{ inputs.format }}
+        ARGUS_OUTPUT: ${{ inputs.output }}
+      run: |
+        set -euo pipefail
+        upload=false
+        if [ "$UPLOAD_SARIF" = "true" ] && [ "$ARGUS_FORMAT" = "sarif" ]; then
+          if [ -f "$ARGUS_OUTPUT" ]; then
+            upload=true
+          else
+            echo "::warning::SARIF upload skipped: $ARGUS_OUTPUT was not written."
+          fi
+        fi
+        echo "upload=$upload" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF to code scanning
+      if: always() && steps.sarif.outputs.upload == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.output }}
+        category: argus-probe
+
+    - name: Apply fail-on gate
+      if: always()
+      shell: bash
+      env:
+        SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+        ARGUS_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        if [ -z "$SCAN_EXIT_CODE" ]; then
+          echo "::error::argus-probe did not run; see the earlier steps."
+          exit 1
+        fi
+        case "$SCAN_EXIT_CODE" in
+          0)
+            echo "Argus scan passed."
+            ;;
+          3)
+            echo "::error::Argus gate tripped: at least one failed probe has severity $ARGUS_FAIL_ON or higher."
+            exit 3
+            ;;
+          *)
+            echo "::error::Argus scan error: argus-probe exited with code $SCAN_EXIT_CODE. Check the scan log above."
+            exit "$SCAN_EXIT_CODE"
+            ;;
+        esac
