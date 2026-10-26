@@ -2,6 +2,8 @@
 
 This action runs [Argus](https://github.com/gy15901580825/Argus) red-team probes against your AI agent from inside your CI job. It installs the `argus-probe` CLI, runs `argus-probe run --local` against the target you describe in a JSON file, and writes a report. With the default SARIF format it uploads the report to GitHub code scanning, so findings show up in the Security tab and on pull requests. The job fails when a probe fails at or above the `fail-on` severity. The SARIF upload happens before the job fails, so you still see the findings.
 
+**Status:** not released yet. The `v1` tag will be created once `argus-probe` 0.1.0 is published on PyPI. Until then `@v1` does not resolve.
+
 ## Usage
 
 ```yaml
