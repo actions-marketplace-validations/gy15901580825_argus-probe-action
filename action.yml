@@ -36,7 +36,7 @@ inputs:
   argus-version:
     description: "argus-probe version to install from PyPI."
     required: false
-    default: "0.1.1"
+    default: "0.1.2"
   install-spec:
     description: "Space-separated pip requirement specs to install instead of argus-probe[local]==<argus-version>."
     required: false
