@@ -2,7 +2,7 @@
 
 This action runs [Argus](https://github.com/gy15901580825/Argus) red-team probes against your AI agent from inside your CI job. It installs the `argus-probe` CLI, runs `argus-probe run --local` against the target you describe in a JSON file, and writes a report. With the default SARIF format it uploads the report to GitHub code scanning, so findings show up in the Security tab and on pull requests. The job fails when a probe fails at or above the `fail-on` severity. The SARIF upload happens before the job fails, so you still see the findings.
 
-**Status:** not released yet. The `v1` tag will be created once `argus-probe` 0.1.0 is published on PyPI. Until then `@v1` does not resolve.
+**Status:** `argus-probe` 0.1.1 is on PyPI. The `v1` tag will be created after an end-to-end run of this action passes. Until then `@v1` does not resolve.
 
 ## Usage
 
@@ -54,7 +54,7 @@ A minimal `.argus/target.json` for an OpenAI-compatible endpoint:
 | `fail-on` | `critical` | Fail the job when a probe fails with this severity or higher (`info`, `low`, `medium`, `high`, `critical`). Set it to `''` to turn the gate off. |
 | `per-run-cap` | `0.50` | Maximum LLM spend in USD for one scan. The CLI refuses to start a scan whose estimate is above the cap. |
 | `upload-sarif` | `true` | Upload the report to code scanning. Ignored unless `format` is `sarif`. |
-| `argus-version` | `0.1.0` | Version of `argus-probe` to install from PyPI. |
+| `argus-version` | `0.1.1` | Version of `argus-probe` to install from PyPI. |
 | `install-spec` | `''` | Space-separated pip specs to install instead of `argus-probe[local]==<argus-version>`, for example a git URL or a wheel path. |
 | `python-version` | `3.11` | Python version passed to `actions/setup-python`. |
 
