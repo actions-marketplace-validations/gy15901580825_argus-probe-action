@@ -36,7 +36,7 @@ inputs:
   argus-version:
     description: "argus-probe version to install from PyPI."
     required: false
-    default: "0.1.4"
+    default: "0.4.0"
   install-spec:
     description: "Space-separated pip requirement specs to install instead of argus-probe[local]==<argus-version>."
     required: false
@@ -48,7 +48,7 @@ inputs:
 
 outputs:
   exit-code:
-    description: "Exit code of argus-probe run (0 ok, 1 error, 2 local mode unavailable, 3 gate tripped)."
+    description: "Exit code of argus-probe run (0 ok, 1 error, 2 usage error, 3 gate tripped, 4 cost cap)."
     value: ${{ steps.scan.outputs.exit-code }}
   report:
     description: "Path of the report file."
