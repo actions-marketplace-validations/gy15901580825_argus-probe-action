@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gy15901580825/argus-probe-action@v1
+      - uses: gy15901580825/argus-probe-action@v2
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
@@ -50,9 +50,10 @@ A minimal `.argus/target.json` for an OpenAI-compatible endpoint:
 | `format` | `sarif` | Report format: `sarif`, `html` or `junit`. |
 | `output` | `argus.sarif` | Path of the report file. |
 | `fail-on` | `critical` | Fail the job when a probe fails with this severity or higher (`info`, `low`, `medium`, `high`, `critical`). Set it to `''` to turn the gate off. |
-| `per-run-cap` | `0.50` | Maximum LLM spend in USD for one scan. The CLI refuses to start a scan whose estimate is above the cap. |
+| `per-run-cap` | `0.50` | Maximum LLM spend in USD for one scan. The CLI refuses to start a scan whose estimate is above the cap, and stops a scan whose real spend reaches it. |
+| `skip-judged` | `false` | Without a judge key, run only the probes decided by deterministic checks and report the judged ones as `skipped`. Without it, a scan that selects judged probes and has no key exits 1. |
 | `upload-sarif` | `true` | Upload the report to code scanning. Ignored unless `format` is `sarif`. |
-| `argus-version` | `0.4.0` | Version of `argus-probe` to install from PyPI. |
+| `argus-version` | `0.7.0` | Version of `argus-probe` to install from PyPI. |
 | `install-spec` | `''` | Space-separated pip specs to install instead of `argus-probe[local]==<argus-version>`, for example a git URL or a wheel path. |
 | `python-version` | `3.11` | Python version passed to `actions/setup-python`. |
 
@@ -60,15 +61,20 @@ A minimal `.argus/target.json` for an OpenAI-compatible endpoint:
 
 | Output | Description |
 |---|---|
-| `exit-code` | Exit code of `argus-probe run`. 0 means no gated failure, 1 is an error, 2 is a usage error, 3 means the `fail-on` gate tripped, 4 means the scan was refused because its estimate is above `per-run-cap`. |
+| `exit-code` | Exit code of `argus-probe run`. 0 means no gated failure. 1 means an error, including a run where any probe ended in `error` (for example the target answered 401, 429 or 5xx) or that stopped early. 2 is a usage error, such as an unknown probe id. 3 means the `fail-on` gate tripped. 4 means the cost cap: the estimate was above `per-run-cap`, or real spend reached it during the scan. |
 | `report` | Path of the report file. |
+
+## Versions
+
+`@v2` installs argus-probe 0.7.0. Compared with `@v1` (argus-probe 0.4.0), a job can now fail where it used to pass: a scan in which any probe errored exits 1, HTTP 401, 404 and 429 from the target count as errors, and a scan without a judge key that selects judged probes exits 1 unless `skip-judged` is set. `@v1` is not moved. See the [0.7.0 release notes](https://github.com/gy15901580825/Argus/releases/tag/v0.7.0).
 
 ## Notes
 
-- The judge needs an API key. Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (used automatically when it is the only key). For Azure OpenAI or a litellm model such as Ollama, set `REDTEAM_MODEL_PROVIDER` as described in the [Argus README](https://github.com/gy15901580825/Argus#readme). Without a key the scan exits with code 1.
+- The judge needs an API key. Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (used automatically when it is the only key). For Azure OpenAI or a litellm model such as Ollama, set `REDTEAM_MODEL_PROVIDER` as described in the [Argus README](https://github.com/gy15901580825/Argus#readme). Without a key, a scan that selects judged probes exits 1; set `skip-judged: true` to run only the probes that need no judge. MCP-agent probes need no key.
 - Pull requests from forks and from Dependabot get no repository secrets. The judge key is empty there, so the job fails. Skip the job for those events, for example with `if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')`.
 - `browser_use` targets need an agent that can open the trap page the scan serves on the runner. The page listens on `127.0.0.1` by default, so the agent has to run on the same runner unless the target spec sets `trap_host`, `trap_port` and `trap_public_url`; see the [browser_use section of the cookbook](https://github.com/gy15901580825/Argus/blob/main/docs/onboarding/target-spec-cookbook.md#browser_use).
-- Every scan costs money on your judge key. The default cap is $0.50 per scan. Raise `per-run-cap` when you run `probes: all`.
+- Every scan costs money on your judge key. The default cap is $0.50 per scan. `probes: all` selects only the probes your target can run; against a chat target with the default Anthropic judge it estimates about $5.32, so raise `per-run-cap` for it.
+- For `mcp_agent` and `payment_agent` targets, set `"testbed_url": "local"` in the target spec and the scan starts the bundled testbed on the runner. The agent under test has to reach `127.0.0.1` on the runner.
 - The action fails the job on any nonzero exit code, not only on 3. The error message says whether the gate tripped or the scan itself failed.
 - Uploading SARIF needs `security-events: write`. On private repositories code scanning also needs GitHub Advanced Security.
 

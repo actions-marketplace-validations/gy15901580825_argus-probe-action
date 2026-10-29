@@ -36,7 +36,11 @@ inputs:
   argus-version:
     description: "argus-probe version to install from PyPI."
     required: false
-    default: "0.4.0"
+    default: "0.7.0"
+  skip-judged:
+    description: "Without a judge key, run only the probes decided by deterministic checks and report the rest as skipped. Without this, a scan that selects judged probes and has no key exits 1."
+    required: false
+    default: "false"
   install-spec:
     description: "Space-separated pip requirement specs to install instead of argus-probe[local]==<argus-version>."
     required: false
@@ -48,7 +52,7 @@ inputs:
 
 outputs:
   exit-code:
-    description: "Exit code of argus-probe run (0 ok, 1 error, 2 usage error, 3 gate tripped, 4 cost cap)."
+    description: "Exit code of argus-probe run (0 ok, 1 error or incomplete run, 2 usage error, 3 gate tripped, 4 cost cap)."
     value: ${{ steps.scan.outputs.exit-code }}
   report:
     description: "Path of the report file."
@@ -88,6 +92,7 @@ runs:
         ARGUS_OUTPUT: ${{ inputs.output }}
         ARGUS_FAIL_ON: ${{ inputs.fail-on }}
         ARGUS_PER_RUN_CAP: ${{ inputs.per-run-cap }}
+        ARGUS_SKIP_JUDGED: ${{ inputs.skip-judged }}
       run: |
         set -uo pipefail
         args=(run --local --target "$ARGUS_TARGET" --probes "$ARGUS_PROBES"
@@ -97,6 +102,9 @@ runs:
         fi
         if [ -n "$ARGUS_FAIL_ON" ]; then
           args+=(--fail-on "$ARGUS_FAIL_ON")
+        fi
+        if [ "$ARGUS_SKIP_JUDGED" = "true" ]; then
+          args+=(--skip-judged)
         fi
         code=0
         argus-probe "${args[@]}" || code=$?
