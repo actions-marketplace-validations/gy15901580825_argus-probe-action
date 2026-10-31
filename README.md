@@ -53,7 +53,7 @@ A minimal `.argus/target.json` for an OpenAI-compatible endpoint:
 | `per-run-cap` | `0.50` | Maximum LLM spend in USD for one scan. The CLI refuses to start a scan whose estimate is above the cap, and stops a scan whose real spend reaches it. |
 | `skip-judged` | `false` | Without a judge key, run only the probes decided by deterministic checks and report the judged ones as `skipped`. Without it, a scan that selects judged probes and has no key exits 1. |
 | `upload-sarif` | `true` | Upload the report to code scanning. Ignored unless `format` is `sarif`. |
-| `argus-version` | `0.7.0` | Version of `argus-probe` to install from PyPI. |
+| `argus-version` | `0.8.1` | Version of `argus-probe` to install from PyPI. |
 | `install-spec` | `''` | Space-separated pip specs to install instead of `argus-probe[local]==<argus-version>`, for example a git URL or a wheel path. |
 | `python-version` | `3.11` | Python version passed to `actions/setup-python`. |
 
@@ -66,7 +66,7 @@ A minimal `.argus/target.json` for an OpenAI-compatible endpoint:
 
 ## Versions
 
-`@v2` installs argus-probe 0.7.0. Compared with `@v1` (argus-probe 0.4.0), a job can now fail where it used to pass: a scan in which any probe errored exits 1, HTTP 401, 404 and 429 from the target count as errors, and a scan without a judge key that selects judged probes exits 1 unless `skip-judged` is set. `@v1` is not moved. See the [0.7.0 release notes](https://github.com/gy15901580825/Argus/releases/tag/v0.7.0).
+`@v2` installs argus-probe 0.8.1 (it installed 0.7.0 until 2026-10-31; 0.8.1 adds the choice of judge model, TypeSafe Jev as a judge, and browser probes decided by what the agent did on the trap page, see the [0.8.0](https://github.com/gy15901580825/Argus/releases/tag/v0.8.0) and [0.8.1](https://github.com/gy15901580825/Argus/releases/tag/v0.8.1) release notes). Compared with `@v1` (argus-probe 0.4.0), a job can now fail where it used to pass: a scan in which any probe errored exits 1, HTTP 401, 404 and 429 from the target count as errors, and a scan without a judge key that selects judged probes exits 1 unless `skip-judged` is set. `@v1` is not moved. See the [0.7.0 release notes](https://github.com/gy15901580825/Argus/releases/tag/v0.7.0).
 
 ## Notes
 

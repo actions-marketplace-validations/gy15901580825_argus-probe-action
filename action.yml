@@ -36,7 +36,7 @@ inputs:
   argus-version:
     description: "argus-probe version to install from PyPI."
     required: false
-    default: "0.7.0"
+    default: "0.8.1"
   skip-judged:
     description: "Without a judge key, run only the probes decided by deterministic checks and report the rest as skipped. Without this, a scan that selects judged probes and has no key exits 1."
     required: false
